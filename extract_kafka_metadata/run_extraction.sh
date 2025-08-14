@@ -22,6 +22,8 @@ SCRIPTS_DIR="$CACHE_DIR/scripts/extract_msk_metadata"
 EXTRACT_SCRIPT="$SCRIPTS_DIR/extract-msk-metadata.sh"
 EXTRACTOR_JAR="$RELEASE_DIR/msk-to-confluent-cloud.jar"
 
+# Note: EXTRACT_SCRIPT_ABS will be set after script is downloaded
+
 GENERATED_DIR="$EXTRACT_METADATA_DIR/generated_jsons"
 LOG_BASE_DIR="$PROJECT_ROOT/logs/extract/${ENVIRONMENT}"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
@@ -106,6 +108,10 @@ _download_if_missing "${RAW_BASE_URL}/scripts/extract_msk_metadata/extract-msk-m
 }
 chmod +x "$EXTRACT_SCRIPT"
 
+# Convert to absolute path now that script exists
+EXTRACT_SCRIPT_ABS="$(cd "$(dirname "$EXTRACT_SCRIPT")" && pwd)/$(basename "$EXTRACT_SCRIPT")"
+print_info "Extract script absolute path: $EXTRACT_SCRIPT_ABS"
+
 # Require msk.config in extract_kafka_metadata directory
 LOCAL_MSK_CONFIG="$EXTRACT_METADATA_DIR/msk.config"
 if [ -f "$LOCAL_MSK_CONFIG" ]; then
@@ -122,11 +128,22 @@ export MSK_UTILITY_BASE_DIR="$CACHE_DIR"
 export MSK_RELEASE_DIR="$RELEASE_DIR"
 export MSK_CONFIG_FILE="$CACHE_DIR/msk.config"
 
+# Verify script exists and is executable
+if [ ! -f "$EXTRACT_SCRIPT_ABS" ]; then
+  print_error "Extract script not found at: $EXTRACT_SCRIPT_ABS"
+  exit 1
+fi
+
+if [ ! -x "$EXTRACT_SCRIPT_ABS" ]; then
+  print_error "Extract script is not executable: $EXTRACT_SCRIPT_ABS"
+  exit 1
+fi
+
 print_info "Running extractor via upstream script..."
-echo "Command: $EXTRACT_SCRIPT --source-of-schemas ${SCHEMA_SOURCE}" >> "$FULL_LOG_FILE"
+echo "Command: $EXTRACT_SCRIPT_ABS --source-of-schemas ${SCHEMA_SOURCE}" >> "$FULL_LOG_FILE"
 (
   cd "$CACHE_DIR"
-  "$EXTRACT_SCRIPT" --source-of-schemas "${SCHEMA_SOURCE}"
+  "$EXTRACT_SCRIPT_ABS" --source-of-schemas "${SCHEMA_SOURCE}"
 ) 2>&1 | tee -a "$FULL_LOG_FILE" "$LOG_FILE"
 
 # Copy outputs back to repo
