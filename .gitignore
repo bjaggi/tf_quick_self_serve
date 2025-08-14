@@ -1,9 +1,15 @@
 # Local .terraform directories
 .terraform/
 
-# .tfstate files
+# .tfstate files (anywhere in the project)
 *.tfstate
 *.tfstate.*
+
+# Organized state files in states directory
+states/**/*.tfstate
+states/**/*.tfstate.*
+states/**/*.tfplan
+states/**/*.tfplan.*
 
 # Crash log files
 crash.log
@@ -13,8 +19,10 @@ crash.*.log
 # password, private keys, and other secrets. These should not be part of version 
 # control as they are data points which are potentially sensitive and subject 
 # to change depending on the environment.
+# .tfvars files (keep environment templates for reference)
 *.tfvars
 *.tfvars.json
+!environments/*.tfvars  # Keep environment templates
 
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
@@ -35,3 +43,11 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Ignore log files from deployment scripts
+logs/
+logs/*
+
+# Extraction utility vendor clone and outputs
+.vendor/
+extract_kafka_metadata/generated_jsons/
