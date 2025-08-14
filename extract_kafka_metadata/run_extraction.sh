@@ -9,16 +9,21 @@ RELEASE_API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/release
 RELEASE_BASE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download"
 RAW_BASE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main"
 
+# Static path definitions (script should be run from extract_kafka_metadata directory)
+SCRIPT_DIR="$(dirname "$0")"
+PROJECT_ROOT="$SCRIPT_DIR/.."
+EXTRACT_METADATA_DIR="$SCRIPT_DIR"
+
 # Local cache/paths
-CACHE_DIR_DEFAULT="$(pwd)/.vendor/${REPO_NAME}-release"
+CACHE_DIR_DEFAULT="$EXTRACT_METADATA_DIR/.vendor/${REPO_NAME}-release"
 CACHE_DIR=${ACL_TO_CC_UTILITY_DIR:-$CACHE_DIR_DEFAULT}
 RELEASE_DIR="$CACHE_DIR/release"
 SCRIPTS_DIR="$CACHE_DIR/scripts/extract_msk_metadata"
 EXTRACT_SCRIPT="$SCRIPTS_DIR/extract-msk-metadata.sh"
 EXTRACTOR_JAR="$RELEASE_DIR/msk-to-confluent-cloud.jar"
 
-GENERATED_DIR="$(pwd)/extract_kafka_metadata/generated_jsons"
-LOG_BASE_DIR="$(pwd)/logs/extract/${ENVIRONMENT}"
+GENERATED_DIR="$EXTRACT_METADATA_DIR/generated_jsons"
+LOG_BASE_DIR="$PROJECT_ROOT/logs/extract/${ENVIRONMENT}"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 LOG_FILE="$LOG_BASE_DIR/extract_${TIMESTAMP}.log"
 FULL_LOG_FILE="$LOG_BASE_DIR/extract_${TIMESTAMP}_full.log"
@@ -102,13 +107,13 @@ _download_if_missing "${RAW_BASE_URL}/scripts/extract_msk_metadata/extract-msk-m
 chmod +x "$EXTRACT_SCRIPT"
 
 # Require msk.config in extract_kafka_metadata directory
-LOCAL_MSK_CONFIG="$(pwd)/msk.config"
+LOCAL_MSK_CONFIG="$EXTRACT_METADATA_DIR/msk.config"
 if [ -f "$LOCAL_MSK_CONFIG" ]; then
   print_info "Found msk.config in extract_kafka_metadata directory, copying to cache"
   cp "$LOCAL_MSK_CONFIG" "$CACHE_DIR/msk.config"
 else
   print_error "msk.config is required but not found in extract_kafka_metadata/ directory"
-  print_error "Please place your msk.config file in: $(pwd)/msk.config"
+  print_error "Please place your msk.config file in: $LOCAL_MSK_CONFIG"
   exit 1
 fi
 
