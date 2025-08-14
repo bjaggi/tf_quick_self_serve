@@ -101,8 +101,12 @@ _download_if_missing "${RAW_BASE_URL}/scripts/extract_msk_metadata/extract-msk-m
 }
 chmod +x "$EXTRACT_SCRIPT"
 
-# Ensure msk.config exists
-if [ ! -f "$CACHE_DIR/msk.config" ]; then
+# Ensure msk.config exists - check local directory first
+LOCAL_MSK_CONFIG="$(pwd)/msk.config"
+if [ -f "$LOCAL_MSK_CONFIG" ]; then
+  print_info "Found msk.config in local directory, copying to cache"
+  cp "$LOCAL_MSK_CONFIG" "$CACHE_DIR/msk.config"
+elif [ ! -f "$CACHE_DIR/msk.config" ]; then
   if [ -n "${MSK_CLUSTER_ARN:-}" ] && [ -n "${AWS_REGION:-}" ]; then
     print_info "Creating msk.config from environment variables"
     cat > "$CACHE_DIR/msk.config" <<EOF
@@ -117,15 +121,7 @@ request.timeout.ms=30000
 admin.request.timeout.ms=60000
 EOF
   else
-    # Try to fetch sample from repo raw
-    _download_if_missing "${RAW_BASE_URL}/msk.config.sample" "$CACHE_DIR/msk.config.sample" || true
-    if [ -f "$CACHE_DIR/msk.config.sample" ]; then
-      print_info "Copying downloaded msk.config.sample to msk.config"
-      cp "$CACHE_DIR/msk.config.sample" "$CACHE_DIR/msk.config"
-    else
-      print_error "msk.config not found and cannot be generated. Set MSK_CLUSTER_ARN and AWS_REGION or place msk.config in $CACHE_DIR"
-      exit 1
-    fi
+      print_error "msk.config not found and cannot be generated. Set MSK_CLUSTER_ARN and AWS_REGION or place msk.config in extract_kafka_metadata/ or $CACHE_DIR"     
   fi
 fi
 
