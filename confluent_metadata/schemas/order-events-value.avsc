@@ -1,0 +1,51 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.example.events",
+  "doc": "Schema for order-related events",
+  "fields": [
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Unique identifier for the order"
+    },
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "User who placed the order"
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "OrderEventType",
+        "symbols": ["ORDER_CREATED", "ORDER_UPDATED", "ORDER_CANCELLED", "ORDER_SHIPPED", "ORDER_DELIVERED"]
+      },
+      "doc": "Type of order event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "data",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "OrderData",
+          "fields": [
+            {"name": "totalAmount", "type": ["null", "double"], "default": null},
+            {"name": "currency", "type": ["null", "string"], "default": null},
+            {"name": "status", "type": ["null", "string"], "default": null},
+            {"name": "items", "type": ["null", {"type": "array", "items": "string"}], "default": null}
+          ]
+        }
+      ],
+      "default": null,
+      "doc": "Additional order data"
+    }
+  ]
+} 

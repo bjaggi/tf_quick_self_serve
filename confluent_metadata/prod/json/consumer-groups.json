@@ -1,0 +1,31 @@
+{
+  "consumer_groups": [
+    {
+      "name": "user-service-consumer-group",
+      "topics": ["user-events"],
+      "consumer_lag_threshold": 5000,
+      "auto_offset_reset": "earliest",
+      "enabled": false,
+      "description": "Consumer group for user service - currently not managed"
+    },
+    {
+      "name": "order-service-consumer-group", 
+      "topics": ["user-events", "order-events"],
+      "consumer_lag_threshold": 10000,
+      "auto_offset_reset": "latest",
+      "enabled": false,
+      "description": "Consumer group for order service - currently not managed"
+    },
+    {
+      "name": "payment-service-consumer-group",
+      "topics": ["order-events", "payment-events"],
+      "consumer_lag_threshold": 1000,
+      "auto_offset_reset": "earliest",
+      "enabled": false,
+      "description": "Consumer group for payment service - currently not managed"
+    }
+  ],
+  "environment": "prod",
+  "note": "Consumer groups are typically created automatically by applications. These are example configurations for production scale.",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}

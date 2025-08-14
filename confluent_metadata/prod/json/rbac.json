@@ -1,0 +1,48 @@
+{
+  "rbac_bindings_simplified": [
+    {
+      "principal": "user-service-prod",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "user-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "order-service-prod",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "user-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "order-service-prod",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "order-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "payment-service-prod",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "order-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "payment-service-prod",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "payment-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "prod-admins",
+      "role": "EnvironmentAdmin",
+      "resource_type": "Environment",
+      "resource_name": "*",
+      "pattern_type": "LITERAL"
+    }
+  ],
+  "environment": "prod",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}

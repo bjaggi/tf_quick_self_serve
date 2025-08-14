@@ -1,0 +1,92 @@
+# Development Environment Configuration
+# Edit this file to modify your Kafka infrastructure for dev environment
+# Organization ID: fff39d13-91b7-444b-baa6-c0007e80e4d5 (SERVICES - AMER NE)
+
+topics:
+  uat-user-events:
+    partitions: 3
+    config:
+      "cleanup.policy": "delete"
+      "retention.ms": "604800000"  # 7 days
+      "min.insync.replicas": "1"
+  
+  uat-order-events:
+    partitions: 6
+    config:
+      "cleanup.policy": "delete"
+      "retention.ms": "2592000000"  # 30 days
+      "min.insync.replicas": "1"
+  
+  uat-payment-events:
+    partitions: 3
+    config:
+      "cleanup.policy": "delete"
+      "retention.ms": "7776000000"  # 90 days
+      "min.insync.replicas": "1"
+
+service_accounts:
+  uat-user-service-dev:
+    description: "Service account for user service in dev environment"
+  
+  uat-order-service-dev:
+    description: "Service account for order service in dev environment"
+  
+  uat-payment-service-dev:
+    description: "Service account for payment service in dev environment"
+
+# identity_pools:
+#   dev-engineers:
+#     description: "Identity pool for development engineers"
+#     identity_claim: "sub"
+#     filter: "claims.group=='dev-engineers'"
+#     identity_provider_id: "op-12345"  # Replace with your identity provider ID
+
+rbac_bindings:
+  uat-user-service-producer:
+    principal_type: "service_account"
+    principal_name: "uat-user-service-dev"
+    role_name: "DeveloperWrite"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=uat-user-events"
+  
+  uat-order-service-consumer:
+    principal_type: "service_account"
+    principal_name: "uat-order-service-dev"
+    role_name: "DeveloperRead"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=uat-user-events"
+  
+  uat-order-service-producer:
+    principal_type: "service_account"
+    principal_name: "uat-order-service-dev"
+    role_name: "DeveloperWrite"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=uat-order-events"
+  
+  uat-payment-service-consumer:
+    principal_type: "service_account"
+    principal_name: "uat-payment-service-dev"
+    role_name: "DeveloperRead"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=uat-order-events"
+  
+  uat-payment-service-producer:
+    principal_type: "service_account"
+    principal_name: "uat-payment-service-dev"
+    role_name: "DeveloperWrite"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=uat-payment-events"
+  
+  # dev-engineers-admin:
+  #   principal_type: "identity_pool"
+  #   principal_name: "dev-engineers"
+  #   role_name: "EnvironmentAdmin"
+  #   crn_pattern: "crn://confluent.cloud/organization=*/environment=*"
+
+schemas:
+  user-events-value:
+    format: "AVRO"
+    schema_file: "confluent_metadata/schemas/user-events-value.avsc"
+  
+  order-events-value:
+    format: "AVRO"
+    schema_file: "confluent_metadata/schemas/order-events-value.avsc"
+  
+  payment-events-value:
+    format: "AVRO"
+    schema_file: "confluent_metadata/schemas/payment-events-value.avsc" 

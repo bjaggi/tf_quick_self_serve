@@ -1,0 +1,21 @@
+{
+  "schemas": [
+    {
+      "name": "user-events-value",
+      "format": "AVRO",
+      "schema_file": "confluent_metadata/schemas/user-events-value.avsc"
+    },
+    {
+      "name": "order-events-value",
+      "format": "AVRO", 
+      "schema_file": "confluent_metadata/schemas/order-events-value.avsc"
+    },
+    {
+      "name": "payment-events-value",
+      "format": "AVRO",
+      "schema_file": "confluent_metadata/schemas/payment-events-value.avsc"
+    }
+  ],
+  "environment": "dev",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}

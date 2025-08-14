@@ -1,0 +1,28 @@
+{
+  "rbac_bindings_simplified": [
+    {
+      "principal": "jaggi-msk-role",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "test_w",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "consumer-service-dev",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "test_r",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "admin-team",
+      "role": "EnvironmentAdmin",
+      "resource_type": "Environment",
+      "resource_name": "*",
+      "pattern_type": "LITERAL"
+    }
+  ],
+  "environment": "dev",
+  "description": "Example of simplified RBAC format - environment and cluster_id are read from environments/*.tfvars",
+  "exported_at": "2025-01-27T14:00:00.000000000"
+}

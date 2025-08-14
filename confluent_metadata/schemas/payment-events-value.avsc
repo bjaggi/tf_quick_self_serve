@@ -1,0 +1,57 @@
+{
+  "type": "record",
+  "name": "PaymentEvent",
+  "namespace": "com.example.events",
+  "doc": "Schema for payment-related events",
+  "fields": [
+    {
+      "name": "paymentId",
+      "type": "string",
+      "doc": "Unique identifier for the payment"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Associated order identifier"
+    },
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "User making the payment"
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "PaymentEventType",
+        "symbols": ["PAYMENT_INITIATED", "PAYMENT_PROCESSING", "PAYMENT_COMPLETED", "PAYMENT_FAILED", "PAYMENT_REFUNDED"]
+      },
+      "doc": "Type of payment event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "data",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "PaymentData",
+          "fields": [
+            {"name": "amount", "type": ["null", "double"], "default": null},
+            {"name": "currency", "type": ["null", "string"], "default": null},
+            {"name": "paymentMethod", "type": ["null", "string"], "default": null},
+            {"name": "status", "type": ["null", "string"], "default": null},
+            {"name": "transactionId", "type": ["null", "string"], "default": null}
+          ]
+        }
+      ],
+      "default": null,
+      "doc": "Additional payment data"
+    }
+  ]
+} 

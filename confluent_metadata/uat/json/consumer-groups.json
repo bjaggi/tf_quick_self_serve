@@ -1,0 +1,31 @@
+{
+  "consumer_groups": [
+    {
+      "name": "uat-user-service-consumer-group",
+      "topics": ["uat-user-events"],
+      "consumer_lag_threshold": 1000,
+      "auto_offset_reset": "earliest",
+      "enabled": false,
+      "description": "Consumer group for user service - currently not managed"
+    },
+    {
+      "name": "uat-order-service-consumer-group", 
+      "topics": ["uat-user-events", "uat-order-events"],
+      "consumer_lag_threshold": 500,
+      "auto_offset_reset": "latest",
+      "enabled": false,
+      "description": "Consumer group for order service - currently not managed"
+    },
+    {
+      "name": "uat-payment-service-consumer-group",
+      "topics": ["uat-order-events", "uat-payment-events"],
+      "consumer_lag_threshold": 100,
+      "auto_offset_reset": "earliest",
+      "enabled": false,
+      "description": "Consumer group for payment service - currently not managed"
+    }
+  ],
+  "environment": "uat",
+  "note": "Consumer groups are typically created automatically by applications. These are example configurations.",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}

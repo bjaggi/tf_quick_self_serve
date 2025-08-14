@@ -1,0 +1,41 @@
+{
+  "rbac_bindings_simplified": [
+    {
+      "principal": "user-service-dev",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "user-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "order-service-dev",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "user-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "order-service-dev",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "order-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "payment-service-dev",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "order-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "payment-service-dev",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "payment-events",
+      "pattern_type": "LITERAL"
+    }
+  ],
+  "environment": "dev",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}

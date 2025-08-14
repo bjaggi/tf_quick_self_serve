@@ -1,0 +1,36 @@
+{
+  "topics": [
+    {
+      "name": "uat-user-events",
+      "partitions": 3,
+      "replication_factor": 3,
+      "configurations": {
+        "cleanup.policy": "delete",
+        "retention.ms": "604800000",
+        "min.insync.replicas": "1"
+      }
+    },
+    {
+      "name": "uat-order-events", 
+      "partitions": 6,
+      "replication_factor": 3,
+      "configurations": {
+        "cleanup.policy": "delete",
+        "retention.ms": "2592000000",
+        "min.insync.replicas": "1"
+      }
+    },
+    {
+      "name": "uat-payment-events",
+      "partitions": 3,
+      "replication_factor": 3,
+      "configurations": {
+        "cleanup.policy": "delete",
+        "retention.ms": "7776000000",
+        "min.insync.replicas": "1"
+      }
+    }
+  ],
+  "environment": "uat",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}

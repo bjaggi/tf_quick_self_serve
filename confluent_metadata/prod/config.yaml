@@ -1,0 +1,91 @@
+# Production Environment Configuration
+# Edit this file to modify your Kafka infrastructure for prod environment
+
+topics:
+  user-events:
+    partitions: 12
+    config:
+      "cleanup.policy": "delete"
+      "retention.ms": "2592000000"  # 30 days
+      "min.insync.replicas": "3"
+  
+  order-events:
+    partitions: 24
+    config:
+      "cleanup.policy": "delete"
+      "retention.ms": "7776000000"  # 90 days
+      "min.insync.replicas": "3"
+  
+  payment-events:
+    partitions: 12
+    config:
+      "cleanup.policy": "delete"
+      "retention.ms": "31536000000"  # 365 days
+      "min.insync.replicas": "3"
+
+service_accounts:
+  user-service-prod:
+    description: "Service account for user service in production environment"
+  
+  order-service-prod:
+    description: "Service account for order service in production environment"
+  
+  payment-service-prod:
+    description: "Service account for payment service in production environment"
+
+identity_pools:
+  prod-admins:
+    description: "Identity pool for production administrators"
+    identity_claim: "sub"
+    filter: "claims.group=='prod-admins'"
+    identity_provider_id: "op-12345"  # Replace with your identity provider ID
+
+rbac_bindings:
+  user-service-producer:
+    principal_type: "service_account"
+    principal_name: "user-service-prod"
+    role_name: "DeveloperWrite"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=user-events"
+  
+  order-service-consumer:
+    principal_type: "service_account"
+    principal_name: "order-service-prod"
+    role_name: "DeveloperRead"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=user-events"
+  
+  order-service-producer:
+    principal_type: "service_account"
+    principal_name: "order-service-prod"
+    role_name: "DeveloperWrite"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=order-events"
+  
+  payment-service-consumer:
+    principal_type: "service_account"
+    principal_name: "payment-service-prod"
+    role_name: "DeveloperRead"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=order-events"
+  
+  payment-service-producer:
+    principal_type: "service_account"
+    principal_name: "payment-service-prod"
+    role_name: "DeveloperWrite"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*/cloud-cluster=*/kafka=*/topic=payment-events"
+  
+  prod-admins-env-admin:
+    principal_type: "identity_pool"
+    principal_name: "prod-admins"
+    role_name: "EnvironmentAdmin"
+    crn_pattern: "crn://confluent.cloud/organization=*/environment=*"
+
+schemas:
+  user-events-value:
+    format: "AVRO"
+    schema_file: "confluent_metadata/schemas/user-events-value.avsc"
+  
+  order-events-value:
+    format: "AVRO"
+    schema_file: "confluent_metadata/schemas/order-events-value.avsc"
+  
+  payment-events-value:
+    format: "AVRO"
+    schema_file: "confluent_metadata/schemas/payment-events-value.avsc" 

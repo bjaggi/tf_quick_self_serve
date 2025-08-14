@@ -1,0 +1,45 @@
+{
+  "type": "record",
+  "name": "UserEvent",
+  "namespace": "com.example.events",
+  "doc": "Schema for user-related events",
+  "fields": [
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "Unique identifier for the user"
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "UserEventType",
+        "symbols": ["USER_CREATED", "USER_UPDATED", "USER_DELETED", "USER_LOGIN", "USER_LOGOUT"]
+      },
+      "doc": "Type of user event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "data",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "UserData",
+          "fields": [
+            {"name": "email", "type": ["null", "string"], "default": null},
+            {"name": "name", "type": ["null", "string"], "default": null},
+            {"name": "status", "type": ["null", "string"], "default": null}
+          ]
+        }
+      ],
+      "default": null,
+      "doc": "Additional event data"
+    }
+  ]
+} 

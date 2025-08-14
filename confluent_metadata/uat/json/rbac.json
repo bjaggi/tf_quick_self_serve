@@ -1,0 +1,41 @@
+{
+  "rbac_bindings_simplified": [
+    {
+      "principal": "uat-user-service-dev",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "uat-user-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "uat-order-service-dev",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "uat-user-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "uat-order-service-dev",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "uat-order-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "uat-payment-service-dev",
+      "role": "DeveloperRead",
+      "resource_type": "Topic",
+      "resource_name": "uat-order-events",
+      "pattern_type": "LITERAL"
+    },
+    {
+      "principal": "uat-payment-service-dev",
+      "role": "DeveloperWrite",
+      "resource_type": "Topic",
+      "resource_name": "uat-payment-events",
+      "pattern_type": "LITERAL"
+    }
+  ],
+  "environment": "uat",
+  "exported_at": "2025-01-27T12:00:00.000000000"
+}
