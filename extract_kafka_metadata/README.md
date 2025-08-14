@@ -8,8 +8,7 @@ Upstream utility and script:
 
 ## What this does
 - Downloads the latest release JAR and extractor script (no git clone)
-- Looks for msk.config in extract_kafka_metadata/ directory first
-- Ensures an msk.config exists (creates one from env vars if not found locally)
+- Requires msk.config in extract_kafka_metadata/ directory (mandatory)
 - Runs the extractor script (supports Glue schema source by default)
 - Copies generated JSONs into extract_kafka_metadata/generated_jsons/
 - Saves logs under logs/extract/
@@ -18,10 +17,7 @@ Upstream utility and script:
 - bash, curl
 - Java (required by the upstream extractor)
 - AWS credentials with permissions to MSK (and Glue if using Glue schema registry)
-- **Required: Place your `msk.config` file in the `extract_kafka_metadata/` directory**
-- Optional env vars (used if msk.config is not found):
-  - AWS_REGION (recommended)
-  - MSK_CLUSTER_ARN (used to auto-generate msk.config)
+- **MANDATORY: Your `msk.config` file must be placed in the `extract_kafka_metadata/` directory**
 
 ## Usage
 ```bash
@@ -49,10 +45,8 @@ ACL_TO_CC_UTILITY_DIR=/path/to/cache ./extract_kafka_metadata/run_extraction.sh 
   - logs/extract/{environment}/extract_YYYYMMDD_HHMMSS_full.log
 
 ## Notes
-- The script looks for msk.config in this priority order:
-  1. **extract_kafka_metadata/msk.config** (recommended - place your config here)
-  2. Auto-generated from MSK_CLUSTER_ARN and AWS_REGION environment variables
-  3. If neither found, the script will fail with guidance
+- The script requires msk.config to be present in extract_kafka_metadata/ directory
+- If msk.config is not found, the script will immediately fail with an error
 - AWS credentials and permissions are expected to be provided by your environment (env vars, profiles, roles, etc.)
 
 ## MSK Configuration Example

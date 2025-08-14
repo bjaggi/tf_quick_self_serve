@@ -101,28 +101,15 @@ _download_if_missing "${RAW_BASE_URL}/scripts/extract_msk_metadata/extract-msk-m
 }
 chmod +x "$EXTRACT_SCRIPT"
 
-# Ensure msk.config exists - check local directory first
+# Require msk.config in extract_kafka_metadata directory
 LOCAL_MSK_CONFIG="$(pwd)/msk.config"
 if [ -f "$LOCAL_MSK_CONFIG" ]; then
-  print_info "Found msk.config in local directory, copying to cache"
+  print_info "Found msk.config in extract_kafka_metadata directory, copying to cache"
   cp "$LOCAL_MSK_CONFIG" "$CACHE_DIR/msk.config"
-elif [ ! -f "$CACHE_DIR/msk.config" ]; then
-  if [ -n "${MSK_CLUSTER_ARN:-}" ] && [ -n "${AWS_REGION:-}" ]; then
-    print_info "Creating msk.config from environment variables"
-    cat > "$CACHE_DIR/msk.config" <<EOF
-cluster.arn=${MSK_CLUSTER_ARN}
-aws.region=${AWS_REGION}
-security.protocol=SASL_SSL
-sasl.mechanism=AWS_MSK_IAM
-sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;
-sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler
-client.id=msk-acl-extractor
-request.timeout.ms=30000
-admin.request.timeout.ms=60000
-EOF
-  else
-      print_error "msk.config not found and cannot be generated. Set MSK_CLUSTER_ARN and AWS_REGION or place msk.config in extract_kafka_metadata/ or $CACHE_DIR"     
-  fi
+else
+  print_error "msk.config is required but not found in extract_kafka_metadata/ directory"
+  print_error "Please place your msk.config file in: $(pwd)/msk.config"
+  exit 1
 fi
 
 # Export required variables so upstream script can find artifacts in our cache
