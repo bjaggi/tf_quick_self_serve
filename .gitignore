@@ -22,7 +22,7 @@ crash.*.log
 # .tfvars files (keep environment templates for reference)
 *.tfvars
 *.tfvars.json
-!environments/*.tfvars  # Keep environment templates
+#. !environments/*.tfvars  # Keep environment templates
 
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
