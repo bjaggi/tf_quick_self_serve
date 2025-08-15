@@ -1,62 +1,69 @@
-# Extract Kafka Metadata (MSK)
+# MSK ACL to Confluent Cloud RBAC Converter
 
-This folder contains a wrapper to run the MSK metadata extractor from the external utility and copy the generated JSONs back into this repository.
+This folder contains a script to convert MSK ACLs to Confluent Cloud RBAC format using the JAR utility.
 
-Upstream utility and script:
+Upstream utility:
 - Repo: https://github.com/bjaggi/acl-to-cc-rbac-utility
-- Script: ./scripts/extract_msk_metadata/extract-msk-metadata.sh
+- JAR: msk-to-confluent-cloud.jar
 
 ## What this does
-- Downloads the latest release JAR and extractor script (no git clone)
-- Requires msk.config in extract_kafka_metadata/ directory (mandatory)
-- Runs the extractor script (supports Glue schema source by default)
-- Copies generated JSONs into extract_kafka_metadata/generated_jsons/
-- Saves logs under logs/extract/
+- Uses pre-installed JAR file from libs/ directory (no downloading)
+- Converts MSK ACLs from JSON format to Confluent Cloud RBAC format
+- Takes input from generated_jsons/msk_jsons/msk_acls.json by default
+- Outputs to generated_jsons/cc_jsons/cc_rbac.json by default
+- Supports custom environment and cluster IDs
 
 ## Prerequisites
-- bash, curl
-- Java (required by the upstream extractor)
-- AWS credentials with permissions to MSK (and Glue if using Glue schema registry)
-- **MANDATORY: Your `msk.config` file must be placed in the `extract_kafka_metadata/` directory**
+- bash
+- Java 11 or higher (required by the ACL converter JAR)
+- **MANDATORY: `msk-to-confluent-cloud.jar` file must be placed in the `libs/` directory**
+- Input MSK ACL data in JSON format (default: generated_jsons/msk_jsons/msk_acls.json)
 
 ## Usage
 ```bash
-# 1. Place your msk.config file in extract_kafka_metadata/ directory
-cp /path/to/your/msk.config extract_kafka_metadata/
+# 1. Place the JAR file in libs/ directory
+cp /path/to/msk-to-confluent-cloud.jar extract_kafka_metadata/libs/
 
-# 2. Make the wrapper executable (first time only)
-chmod +x extract_kafka_metadata/run_extraction.sh
+# 2. Ensure you have MSK ACL data in JSON format
+# Default input: generated_jsons/msk_jsons/msk_acls.json
 
-# 3. Run for dev (default schema source: glue)
-./extract_kafka_metadata/run_extraction.sh dev
+# 3. Run with default settings
+./run_extraction.sh
 
-# Customize schema source (e.g., none, glue)
-SCHEMA_SOURCE=glue ./extract_kafka_metadata/run_extraction.sh dev
+# 4. Run with custom environment and cluster IDs
+./run_extraction.sh -e env-12345 -c lkc-67890
 
-# Use a custom cache directory (optional)
-ACL_TO_CC_UTILITY_DIR=/path/to/cache ./extract_kafka_metadata/run_extraction.sh dev
+# 5. Run with custom input/output files
+./run_extraction.sh -i my_acls.json -o my_rbac.json
+
+# 6. Run with verbose logging
+./run_extraction.sh -v -e env-production -c lkc-my-cluster
 ```
 
 ## Outputs
-- Generated JSONs from the extractor are copied to:
-  - extract_kafka_metadata/generated_jsons/
-- Logs are written to:
-  - logs/extract/{environment}/extract_YYYYMMDD_HHMMSS.log
-  - logs/extract/{environment}/extract_YYYYMMDD_HHMMSS_full.log
+- Converted RBAC file: generated_jsons/cc_jsons/cc_rbac.json (default)
+- Conversion summary with role binding count and file size
+- Detailed logging for troubleshooting
 
 ## Notes
-- The script requires msk.config to be present in extract_kafka_metadata/ directory
-- If msk.config is not found, the script will immediately fail with an error
-- AWS credentials and permissions are expected to be provided by your environment (env vars, profiles, roles, etc.)
+- The script requires msk-to-confluent-cloud.jar to be present in libs/ directory
+- If JAR file is missing, the script will immediately fail with an error  
+- The script runs the JAR directly without downloading any external dependencies
+- Input MSK ACL JSON file must exist (default path or custom via -i option)
+- Output directory will be created automatically if it doesn't exist
 
-## MSK Configuration Example
-Your `msk.config` should contain MSK connection details:
-```properties
-cluster.arn=arn:aws:kafka:us-east-1:123456789012:cluster/my-cluster/abc-123
-aws.region=us-east-1
-security.protocol=SASL_SSL
-sasl.mechanism=AWS_MSK_IAM
-sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;
-sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler
-bootstrap.servers=broker1:9098,broker2:9098,broker3:9098
+## Example MSK ACL Input Format
+Your input JSON file should contain MSK ACL data like:
+```json
+{
+  "acls": [
+    {
+      "resourceType": "Topic",
+      "resourceName": "my-topic",
+      "principal": "User:my-user",
+      "operation": "Read",
+      "permissionType": "Allow"
+    }
+  ]
+}
 ```
