@@ -82,6 +82,13 @@ tf_execute() {
     return $exit_code
 }
 
+# Get the script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Change to project root directory for all operations
+cd "$PROJECT_ROOT"
+
 # Check if environment is provided
 if [ $# -eq 0 ]; then
     print_error "Environment is required!"
@@ -156,7 +163,7 @@ print_info "Using config: $CONFIG_DIR"
 # Auto-initialize backend for environment
 if [ ! -f "backend.tf" ]; then
     print_warning "No backend configuration found. Auto-initializing local backend for $ENVIRONMENT..."
-    ./scripts/init-backend.sh local $ENVIRONMENT
+    "$PROJECT_ROOT/scripts/init-backend.sh" local $ENVIRONMENT
 else
     # Check if backend is configured for the correct environment
     CURRENT_ENV_IN_BACKEND=$(grep -o "states/[^/]*/terraform.tfstate" backend.tf | sed 's|states/||' | sed 's|/terraform.tfstate||' || echo "unknown")
@@ -174,7 +181,7 @@ else
             CURRENT_BACKEND_TYPE="azure-storage"
         fi
         
-        ./scripts/init-backend.sh $CURRENT_BACKEND_TYPE $ENVIRONMENT
+        "$PROJECT_ROOT/scripts/init-backend.sh" $CURRENT_BACKEND_TYPE $ENVIRONMENT
     fi
 fi
 

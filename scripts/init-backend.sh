@@ -59,6 +59,13 @@ fi
 
 print_info "Initializing Terraform backend: $BACKEND_TYPE for environment: $ENVIRONMENT"
 
+# Get the script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Change to project root directory for all operations
+cd "$PROJECT_ROOT"
+
 # Remove existing backend configuration
 if [ -f "backend.tf" ]; then
     print_warning "Removing existing backend configuration..."
@@ -72,7 +79,8 @@ if [ -d ".terraform" ]; then
 fi
 
 # Copy appropriate backend configuration
-BACKEND_FILE="tf_state_externalized/${BACKEND_TYPE}.tf"
+BACKEND_FILE="$PROJECT_ROOT/tf_state_externalized/${BACKEND_TYPE}.tf"
+
 if [ ! -f "$BACKEND_FILE" ]; then
     print_error "Backend configuration file not found: $BACKEND_FILE"
     exit 1
