@@ -1,160 +1,207 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
 
-ENVIRONMENT=${1:-dev}
-SCHEMA_SOURCE=${SCHEMA_SOURCE:-glue}
-REPO_OWNER=bjaggi
-REPO_NAME=acl-to-cc-rbac-utility
-RELEASE_API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
-RELEASE_BASE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download"
-RAW_BASE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main"
+# MSK ACL to Confluent Cloud RBAC Converter Script
+# This script converts MSK ACLs from JSON format to Confluent Cloud RBAC format
+# NO DOWNLOADING - JAR must be present in libs/ directory
 
-# Static path definitions (script should be run from extract_kafka_metadata directory)
-SCRIPT_DIR="$(dirname "$0")"
-PROJECT_ROOT="$SCRIPT_DIR/.."
-EXTRACT_METADATA_DIR="$SCRIPT_DIR"
+set -e
 
-# Local cache/paths
-CACHE_DIR_DEFAULT="$EXTRACT_METADATA_DIR/.vendor/${REPO_NAME}-release"
-CACHE_DIR=${ACL_TO_CC_UTILITY_DIR:-$CACHE_DIR_DEFAULT}
-RELEASE_DIR="$CACHE_DIR/release"
-SCRIPTS_DIR="$CACHE_DIR/scripts/extract_msk_metadata"
-EXTRACT_SCRIPT="$SCRIPTS_DIR/extract-msk-metadata.sh"
-EXTRACTOR_JAR="$RELEASE_DIR/msk-to-confluent-cloud.jar"
+# Default values - run without specific environment/cluster IDs
+INPUT_FILE="generated_jsons/msk_jsons/msk_acls.json"
+OUTPUT_FILE="generated_jsons/cc_jsons/cc_rbac.json"
+ENVIRONMENT=""
+CLUSTER_ID=""
+VERBOSE=false
 
-# Note: EXTRACT_SCRIPT_ABS will be set after script is downloaded
+# Function to display help
+show_help() {
+    cat << EOF
+MSK ACL to Confluent Cloud RBAC Converter
 
-GENERATED_DIR="$EXTRACT_METADATA_DIR/generated_jsons"
-LOG_BASE_DIR="$PROJECT_ROOT/logs/extract/${ENVIRONMENT}"
-TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
-LOG_FILE="$LOG_BASE_DIR/extract_${TIMESTAMP}.log"
-FULL_LOG_FILE="$LOG_BASE_DIR/extract_${TIMESTAMP}_full.log"
+Usage: $0
 
-print_info() { echo -e "[INFO] $1" | tee -a "$LOG_FILE" "$FULL_LOG_FILE"; }
-print_success() { echo -e "[SUCCESS] $1" | tee -a "$LOG_FILE" "$FULL_LOG_FILE"; }
-print_error() { echo -e "[ERROR] $1" | tee -a "$LOG_FILE" "$FULL_LOG_FILE"; }
+Auto-run mode - no command line arguments needed!
 
-mkdir -p "$LOG_BASE_DIR" "$GENERATED_DIR" "$RELEASE_DIR" "$SCRIPTS_DIR"
+The script will:
+- Convert MSK ACLs to Confluent Cloud RBAC format
+- Use default input/output paths
+- Run without specific environment/cluster IDs
 
-echo "=== Extraction session started at $(date) ===" >> "$FULL_LOG_FILE"
-echo "Environment: $ENVIRONMENT" >> "$FULL_LOG_FILE"
-echo "Schema Source: $SCHEMA_SOURCE" >> "$FULL_LOG_FILE"
-echo "Cache Dir: $CACHE_DIR" >> "$FULL_LOG_FILE"
+Files:
+- Input:  msk_jsons/msk_acls.json
+- Output: generated_jsons/cc_jsons/cc_rbac.json
 
-# Helper: download file if not exists or size zero
-_download_if_missing() {
-  local url=$1
-  local dest=$2
-  if [ -s "$dest" ]; then
-    print_info "Found cached: $(basename "$dest")"
-    return 0
-  fi
-  print_info "Downloading: $url -> $dest"
-  if ! curl -fsSL "$url" -o "$dest" 2>>"$FULL_LOG_FILE"; then
-    print_error "Download failed: $url"
-    return 1
-  fi
-  return 0
+Example:
+    # Just run it - no options needed!
+    $0
+
+Requirements:
+    - Java 11 or higher
+    - msk-to-confluent-cloud.jar file in libs/ directory
+    - Input JSON file with MSK ACL data
+
+The script will:
+1. Validate JAR file exists in libs/ directory
+2. Run the ACL to RBAC conversion
+3. Generate a Confluent Cloud RBAC JSON file
+4. Display conversion summary
+
+EOF
 }
 
-# Discover and download latest release JAR using GitHub API
-_download_latest_jar() {
-  print_info "Querying latest release assets via GitHub API"
-  local api_json
-  if ! api_json=$(curl -fsSL "$RELEASE_API_URL" 2>>"$FULL_LOG_FILE"); then
-    print_error "Failed to query GitHub API for latest release"
-    return 1
-  fi
-  # Extract all JAR asset URLs
-  local jar_urls
-  jar_urls=$(printf "%s" "$api_json" | grep -Eo 'browser_download_url"\s*:\s*"[^"]+\.jar"' | sed -E 's/.*"(https:[^"]+)"/\1/')
-  if [ -z "$jar_urls" ]; then
-    print_error "No .jar assets found in latest release"
-    return 1
-  fi
-  # Prefer the msk-to-confluent-cloud jar, else first jar
-  local preferred_url=""
-  while IFS= read -r url; do
-    case "$url" in
-      *msk-to-confluent-cloud*.jar*) preferred_url="$url"; break;;
-    esac
-  done <<< "$jar_urls"
-  if [ -z "$preferred_url" ]; then
-    preferred_url=$(printf "%s\n" "$jar_urls" | head -1)
-  fi
-  print_info "Selected JAR: $preferred_url"
-  local downloaded_name="$RELEASE_DIR/$(basename "$preferred_url")"
-  _download_if_missing "$preferred_url" "$downloaded_name" || return 1
-  # Normalize to expected name for upstream script
-  cp -f "$downloaded_name" "$EXTRACTOR_JAR"
-  print_info "Cached extractor at: $EXTRACTOR_JAR"
-  return 0
+# Auto-run mode - no command line arguments needed
+echo "Auto-run mode: Converting ACLs to RBAC without specific environment/cluster IDs"
+echo ""
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
-if [ ! -s "$EXTRACTOR_JAR" ]; then
-  if ! _download_latest_jar; then
-    print_info "Falling back to raw repository JAR path"
-    _download_if_missing "${RAW_BASE_URL}/release/msk-to-confluent-cloud.jar" "$EXTRACTOR_JAR" || {
-      print_error "Could not obtain msk-to-confluent-cloud.jar from release or raw path"
-      exit 1
-    }
-  fi
-fi
-
-# Fetch the extractor script from main branch (lightweight, no git clone)
-_download_if_missing "${RAW_BASE_URL}/scripts/extract_msk_metadata/extract-msk-metadata.sh" "$EXTRACT_SCRIPT" || {
-  print_error "Could not obtain extractor script"
-  exit 1
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
-chmod +x "$EXTRACT_SCRIPT"
 
-# Convert to absolute path now that script exists
-EXTRACT_SCRIPT_ABS="$(cd "$(dirname "$EXTRACT_SCRIPT")" && pwd)/$(basename "$EXTRACT_SCRIPT")"
-print_info "Extract script absolute path: $EXTRACT_SCRIPT_ABS"
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
 
-# Require msk.config in extract_kafka_metadata directory
-LOCAL_MSK_CONFIG="$EXTRACT_METADATA_DIR/msk.config"
-if [ -f "$LOCAL_MSK_CONFIG" ]; then
-  print_info "Found msk.config in extract_kafka_metadata directory, copying to cache"
-  cp "$LOCAL_MSK_CONFIG" "$CACHE_DIR/msk.config"
-else
-  print_error "msk.config is required but not found in extract_kafka_metadata/ directory"
-  print_error "Please place your msk.config file in: $LOCAL_MSK_CONFIG"
-  exit 1
-fi
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
 
-# Export required variables so upstream script can find artifacts in our cache
-export MSK_UTILITY_BASE_DIR="$CACHE_DIR"
-export MSK_RELEASE_DIR="$RELEASE_DIR"
-export MSK_CONFIG_FILE="$CACHE_DIR/msk.config"
+print_processing() {
+    echo -e "${BLUE}[PROCESSING]${NC} $1"
+}
 
-# Verify script exists and is executable
-if [ ! -f "$EXTRACT_SCRIPT_ABS" ]; then
-  print_error "Extract script not found at: $EXTRACT_SCRIPT_ABS"
-  exit 1
-fi
+show_conversion_summary() {
+    if [[ -f "$OUTPUT_FILE" ]]; then
+        print_info "Conversion Summary:"
+        print_info "=================="
+        print_info "Input file:  $INPUT_FILE"
+        print_info "Output file: $OUTPUT_FILE"
+        
+        # Count role bindings if the file contains JSON
+        if command -v jq &> /dev/null && [[ -s "$OUTPUT_FILE" ]]; then
+            local role_count=$(jq -r '.roleBindings | length' "$OUTPUT_FILE" 2>/dev/null || echo "0")
+            print_info "Role bindings created: $role_count"
+        fi
+        
+        print_info "File size: $(du -h "$OUTPUT_FILE" | cut -f1)"
+    else
+        print_warning "Output file not found: $OUTPUT_FILE"
+    fi
+}
 
-if [ ! -x "$EXTRACT_SCRIPT_ABS" ]; then
-  print_error "Extract script is not executable: $EXTRACT_SCRIPT_ABS"
-  exit 1
-fi
+check_prerequisites() {
+    print_processing "Validating prerequisites..."
+    
+    # Check if Java is available
+    if ! command -v java &> /dev/null; then
+        print_error "Java is not installed or not in PATH"
+        print_info "Please install Java 11 or higher"
+        exit 1
+    fi
+    
+    # Check if JAR file exists in libs directory - NEVER DOWNLOAD
+    if [[ ! -f "libs/msk-to-confluent-cloud.jar" ]]; then
+        print_error "JAR file not found: libs/msk-to-confluent-cloud.jar"
+        print_error "Please place the msk-to-confluent-cloud.jar file in the libs/ directory"
+        print_error "NO DOWNLOADING will be attempted - JAR must be manually placed"
+        exit 1
+    fi
+    
+    # Check if input file exists
+    if [[ ! -f "$INPUT_FILE" ]]; then
+        print_error "Input file not found: $INPUT_FILE"
+        print_error "Please ensure MSK ACL data exists at the specified path"
+        exit 1
+    fi
+    
+    print_success "All prerequisites validated - using JAR from libs/"
+}
 
-print_info "Running extractor via upstream script..."
-echo "Command: $EXTRACT_SCRIPT_ABS --source-of-schemas ${SCHEMA_SOURCE}" >> "$FULL_LOG_FILE"
-(
-  cd "$CACHE_DIR"
-  "$EXTRACT_SCRIPT_ABS" --source-of-schemas "${SCHEMA_SOURCE}"
-) 2>&1 | tee -a "$FULL_LOG_FILE" "$LOG_FILE"
+convert_acls_to_rbac() {
+    print_processing "Converting ACLs to RBAC using Java..."
+    
+    # Create output directory if it doesn't exist
+    mkdir -p "$(dirname "$OUTPUT_FILE")"
+    
+    # Prepare Java command - ONLY use libs JAR, never download
+    JAVA_CMD="java -jar libs/msk-to-confluent-cloud.jar convert"
+    
+    # Add required arguments
+    JAVA_CMD="$JAVA_CMD --input-file \"$INPUT_FILE\""
+    JAVA_CMD="$JAVA_CMD --output-file \"$OUTPUT_FILE\""
+    
+    # Add optional arguments
+    if [[ "$DRY_RUN" == "true" ]]; then
+        JAVA_CMD="$JAVA_CMD --dry-run"
+    fi
+    
+    if [[ "$VERBOSE" == "true" ]]; then
+        JAVA_CMD="$JAVA_CMD --verbose"
+    fi
+    
+    if [[ "$FORCE" == "true" ]]; then
+        JAVA_CMD="$JAVA_CMD --force"
+    fi
+    
+    # Skip environment and cluster ID parameters - let JAR use defaults
+    # if [[ -n "$CLUSTER_ID" ]]; then
+    #     JAVA_CMD="$JAVA_CMD --cluster-id \"$CLUSTER_ID\""
+    # fi
+    # 
+    # if [[ -n "$ENVIRONMENT" ]]; then
+    #     JAVA_CMD="$JAVA_CMD --environment-id \"$ENVIRONMENT\""
+    # fi
+    
+    print_info "Executing: $JAVA_CMD"
+    
+    # Execute the conversion
+    if eval "$JAVA_CMD"; then
+        print_success "ACL to RBAC conversion completed successfully"
+        
+        # Show conversion summary if output file exists
+        if [[ -f "$OUTPUT_FILE" ]]; then
+            show_conversion_summary
+        fi
+        
+        return 0
+    else
+        print_error "ACL to RBAC conversion failed"
+        return 1
+    fi
+}
 
-# Copy outputs back to repo
-SRC_DIR="$CACHE_DIR/generated_jsons"
-if [ -d "$SRC_DIR" ]; then
-  print_info "Copying generated JSONs from $SRC_DIR to $GENERATED_DIR"
-  rsync -a "$SRC_DIR/" "$GENERATED_DIR/" 2>&1 | tee -a "$FULL_LOG_FILE"
-  print_success "Extraction complete. Files available in: $GENERATED_DIR"
-else
-  print_error "No generated_jsons directory found. Check logs for extractor errors."
-  exit 1
-fi
+# Main execution
+main() {
+    print_info "MSK ACL to Confluent Cloud RBAC Converter"
+    print_info "=========================================="
+    print_info "Using JAR from libs/ directory (NO DOWNLOADING)"
+    print_info "Running without specific environment/cluster IDs"
+    print_info ""
+    
+    # Perform checks
+    check_prerequisites
+    
+    # Convert ACLs to RBAC
+    convert_acls_to_rbac
+    
+    print_success "All done! 🎉"
+    print_info "Next steps:"
+    print_info "1. Review the generated RBAC file: $OUTPUT_FILE"
+    print_info "2. Validate the role bindings match your requirements"
+    print_info "3. Apply the role bindings to your Confluent Cloud cluster"
+    print_info "4. Test the permissions with your applications"
+}
 
-echo "=== Extraction session completed at $(date) ===" >> "$FULL_LOG_FILE"
+# Run main function
+main
