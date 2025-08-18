@@ -33,6 +33,12 @@ variable "kafka_rest_endpoint" {
   type        = string
 }
 
+variable "schema_registry_rest_endpoint" {
+  description = "The REST endpoint of the Schema Registry (e.g., https://psrc-xxxxxx.region.provider.confluent.cloud)"
+  type        = string
+  default     = ""
+}
+
 variable "kafka_api_key" {
   description = "Kafka cluster API key (for cluster-level operations)"
   type        = string
@@ -43,6 +49,20 @@ variable "kafka_api_secret" {
   description = "Kafka cluster API secret (for cluster-level operations)"
   type        = string
   sensitive   = true
+}
+
+variable "schema_registry_api_key" {
+  description = "Schema Registry API key (for schema operations)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "schema_registry_api_secret" {
+  description = "Schema Registry API secret (for schema operations)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 variable "config_path" {

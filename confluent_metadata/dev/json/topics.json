@@ -1,6 +1,15 @@
 {
   "topics": [
     {
+      "name": "dev-user-events",
+      "partitions": 3,
+      "replication_factor": 3,
+      "configurations": {
+        "cleanup.policy": "delete",
+        "retention.ms": "604800000",
+        "min.insync.replicas": "1"
+      }
+    },{
       "name": "user-events",
       "partitions": 3,
       "replication_factor": 3,

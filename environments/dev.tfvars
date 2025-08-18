@@ -5,12 +5,17 @@ environment        = "dev"
 organization_id   = "fff39d13-91b7-444b-baa6-c0007e80e4d5"  # SERVICES - AMER NE
 cluster_id        = "lkc-y316j"  # Replace with your dev cluster ID
 environment_id    = "env-7qv2p"  # Replace with your dev environment ID
-#schema_registry_id = "lsrc-xxxxxx" # Replace with your schema registry ID (optional)
+schema_registry_id = "lsrc-j55zm" # Replace with your schema registry ID (optional)
+schema_registry_rest_endpoint = "https://psrc-j55zm.us-central1.gcp.confluent.cloud" # Replace with your Schema Registry REST endpoint
 kafka_rest_endpoint = "https://pkc-ep9mm.us-east-2.aws.confluent.cloud:443" # Replace with your cluster's REST endpoint
 
-# Kafka Cluster API Credentials (for topic and schema operations)
+# Kafka Cluster API Credentials (for topic operations)
 kafka_api_key    = "VBXL6FWEEVMI3MAL"    # Replace with your Kafka cluster API key
 kafka_api_secret = "8FFCR82Vn6txAknYbR8LuYbyR/7rkERs6qlgi22FaohrNyt8bsNwNpQUspa1e4JL" # Replace with your Kafka cluster API secret
+
+# Schema Registry API Credentials (for schema operations) 
+schema_registry_api_key    = "QCAVF7NOELXVNA2J"    # Replace with your Schema Registry API key
+schema_registry_api_secret = "cfltUd+pADZqeV+b30o5TVNpyHXW8YptVCw0Gxdo0H/Z2JVQr2gQ7NBfqbw3eb2g" # Replace with your Schema Registry API secret
 
 # Secret Management Configuration
 # Choose your secret backend: environment_variables, aws_secrets_manager, azure_keyvault, hashicorp_vault, terraform_cloud

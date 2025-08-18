@@ -38,15 +38,50 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to clear provider cache (helpful for permission issues)
+clear_provider_cache() {
+    print_info "🧹 Clearing Terraform provider cache..."
+    if [ -d ".terraform/providers" ]; then
+        rm -rf .terraform/providers
+        print_success "✅ Provider cache cleared"
+        print_info "🔄 Reinitializing Terraform..."
+        terraform init -input=false > /dev/null 2>&1
+        print_success "✅ Terraform reinitialized with fresh provider cache"
+    else
+        print_info "No provider cache found to clear"
+    fi
+}
+
 # Check if environment is provided
 if [ $# -eq 0 ]; then
     print_error "Environment is required!"
     echo "Usage: $0 <environment>"
     echo "Environments: dev, uat, prod"
+    echo ""
+    echo "Options:"
+    echo "  --clear-cache    Clear provider cache before importing (useful for permission issues)"
     exit 1
 fi
 
-ENVIRONMENT=$1
+# Parse arguments
+CLEAR_CACHE=false
+ENVIRONMENT=""
+
+for arg in "$@"; do
+    case $arg in
+        --clear-cache)
+            CLEAR_CACHE=true
+            shift
+            ;;
+        *)
+            if [ -z "$ENVIRONMENT" ]; then
+                ENVIRONMENT="$arg"
+            fi
+            shift
+            ;;
+    esac
+done
+
 TFVARS_FILE="$PROJECT_ROOT/environments/${ENVIRONMENT}.tfvars"
 
 # Validate environment
@@ -73,6 +108,12 @@ if [ -z "$CONFLUENT_CLOUD_API_KEY" ] || [ -z "$CONFLUENT_CLOUD_API_SECRET" ]; th
     echo "export CONFLUENT_CLOUD_API_KEY=\"your-key\""
     echo "export CONFLUENT_CLOUD_API_SECRET=\"your-secret\""
     exit 1
+fi
+
+# Clear provider cache if requested (helps with permission issues)
+if [ "$CLEAR_CACHE" = true ]; then
+    clear_provider_cache
+    echo ""
 fi
 
 # Extract environment details from tfvars
@@ -169,6 +210,23 @@ import_resource() {
         if echo "$import_output" | grep -q "already managed\|already exists in state"; then
             print_success "✅ $description already imported"
             return 0
+        elif echo "$import_output" | grep -q "403 Forbidden\|403.*Forbidden"; then
+            print_error "❌ Permission denied for $description"
+            print_warning "This is likely due to insufficient API key permissions or provider cache issues."
+            echo ""
+            echo "💡 Troubleshooting steps:"
+            echo "   1. Verify your API key has OrganizationAdmin or EnvironmentAdmin permissions:"
+            echo "      - Go to Confluent Cloud Console → Administration → Access → API Keys"
+            echo "      - Find key: $CONFLUENT_CLOUD_API_KEY"
+            echo "      - Check service account roles"
+            echo ""
+            echo "   2. If permissions were recently updated, clear provider cache:"
+            echo "      rm -rf .terraform/providers && terraform init"
+            echo ""
+            echo "   3. Or re-run this script with cache clearing:"
+            echo "      $0 $ENVIRONMENT --clear-cache"
+            echo ""
+            return 1
         else
             print_warning "⚠️  Failed to import $description"
             echo "$import_output" | head -2

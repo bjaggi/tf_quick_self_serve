@@ -13,6 +13,7 @@ This Terraform solution provides automated management of:
 - **Schema Registry**: Manage AVRO/JSON/Protobuf schemas with versioning
 - **Multi-Environment Support**: Separate configurations for dev, uat, and prod environments
 - **Environment Promotion**: Easy promotion of configurations across environments
+- **Automated Resource Import**: Smart import of existing Confluent Cloud resources into Terraform state
 - **Comprehensive Logging**: Automatic capture of all Terraform operations with timestamped logs for audit trails and troubleshooting
 
 ## 📋 Prerequisites
@@ -110,6 +111,9 @@ See [BACKEND_MANAGEMENT.md](BACKEND_MANAGEMENT.md) for detailed backend configur
 │   ├── user-events-value.avsc
 │   ├── order-events-value.avsc
 │   └── payment-events-value.avsc
+├── docs/                    # Additional documentation
+│   ├── TERRAFORM_STATE_MANAGEMENT.md  # State management guide
+│   └── IMPORTING_EXISTING_RESOURCES.md # Import existing resources guide
 ├── README.md                # This documentation
 ├── SECRETS_MANAGEMENT.md    # Detailed secret management guide
 ├── BACKEND_MANAGEMENT.md    # Backend configuration guide
@@ -143,9 +147,12 @@ environment        = "dev"
 cluster_id        = "lkc-your-dev-cluster-id"
 environment_id    = "env-your-dev-environment-id"
 schema_registry_id = "lsrc-your-schema-registry-id"  # Optional
+schema_registry_rest_endpoint = "https://psrc-xxxxx.region.provider.confluent.cloud"  # If using schemas
 kafka_rest_endpoint = "https://pkc-your-cluster.region.provider.confluent.cloud:443"
 kafka_api_key    = "your-kafka-api-key"
 kafka_api_secret = "your-kafka-api-secret"
+schema_registry_api_key    = "your-schema-registry-api-key"     # If using schemas
+schema_registry_api_secret = "your-schema-registry-api-secret" # If using schemas
 ```
 
 **For UAT:**
@@ -154,10 +161,13 @@ kafka_api_secret = "your-kafka-api-secret"
 environment        = "uat"
 cluster_id        = "lkc-your-uat-cluster-id"
 environment_id    = "env-your-uat-environment-id"
+schema_registry_id = "lsrc-your-schema-registry-id"  # Optional
+schema_registry_rest_endpoint = "https://psrc-xxxxx.region.provider.confluent.cloud"  # If using schemas
 kafka_rest_endpoint = "https://pkc-your-cluster.region.provider.confluent.cloud:443"
 kafka_api_key    = "your-kafka-api-key"
 kafka_api_secret = "your-kafka-api-secret"
-schema_registry_id = "lsrc-your-schema-registry-id"  # Optional
+schema_registry_api_key    = "your-schema-registry-api-key"     # If using schemas
+schema_registry_api_secret = "your-schema-registry-api-secret" # If using schemas
 ```
 
 **For Production:**
@@ -167,6 +177,12 @@ environment        = "prod"
 cluster_id        = "lkc-your-prod-cluster-id"
 environment_id    = "env-your-prod-environment-id"
 schema_registry_id = "lsrc-your-schema-registry-id"  # Optional
+schema_registry_rest_endpoint = "https://psrc-xxxxx.region.provider.confluent.cloud"  # If using schemas
+kafka_rest_endpoint = "https://pkc-your-cluster.region.provider.confluent.cloud:443"
+kafka_api_key    = "your-kafka-api-key"
+kafka_api_secret = "your-kafka-api-secret"
+schema_registry_api_key    = "your-schema-registry-api-key"     # If using schemas
+schema_registry_api_secret = "your-schema-registry-api-secret" # If using schemas
 ```
 
 ### 3. Update Configuration Files
@@ -498,6 +514,232 @@ Error: identity provider op-xxxxx was not found
 - Verify identity provider ID in configuration files
 - Ensure identity provider is properly configured in Confluent Cloud
 
+**5. Saved Plan is Stale Error**
+```bash
+Error: Saved plan is stale
+The given plan file can no longer be applied because the state was changed
+by another operation after the plan was created.
+```
+- **Cause**: Configuration or state changed after creating the plan file
+- **Solution**: Remove old plan files and redeploy
+```bash
+rm -f dev.tfplan uat.tfplan prod.tfplan
+./scripts/deploy.sh dev apply
+```
+
+**6. Schema Registry Authentication Issues**
+```bash
+Error: error validating Schema: 401 Unauthorized: Unauthorized
+```
+- **Cause**: Missing or incorrect Schema Registry API credentials
+- **Solution**: Ensure Schema Registry API credentials are configured (separate from Kafka credentials)
+```bash
+# In your environments/{env}.tfvars file:
+schema_registry_api_key    = "YOUR_SCHEMA_REGISTRY_API_KEY"
+schema_registry_api_secret = "YOUR_SCHEMA_REGISTRY_API_SECRET"
+schema_registry_rest_endpoint = "https://psrc-xxxxx.region.provider.confluent.cloud"
+```
+- Create Schema Registry API keys in Confluent Cloud Console → Schema Registry → API Keys
+
+**8. RBAC Permission Issues**
+```bash
+Error: error creating Role Binding: 403 Forbidden: Forbidden Access
+```
+- **Cause**: Either API key lacks permissions OR provider cache hasn't refreshed after permission updates
+- **Required Permissions**: OrganizationAdmin OR EnvironmentAdmin for target environment
+- **Diagnosis**: 
+```bash
+# Check which API key is being used
+echo "Current API Key: $CONFLUENT_CLOUD_API_KEY"
+
+# Verify API key permissions in Confluent Cloud Console:
+# Administration → Access → API Keys → Find your key → Check roles
+```
+- **Solutions**:
+```bash
+# Option 1: Clear provider cache (if permissions were recently updated)
+rm -rf .terraform/providers
+terraform init
+terraform apply -var-file="environments/{env}.tfvars"
+
+# Option 2: Upgrade existing API key permissions in Confluent Cloud Console
+# 1. Go to Administration → Access → API Keys  
+# 2. Find your API key and verify service account has OrganizationAdmin or EnvironmentAdmin role
+
+# Option 3: Create new API key with proper permissions
+# 1. Create service account with OrganizationAdmin role
+# 2. Generate API key for that service account  
+# 3. Update environment variables
+export CONFLUENT_CLOUD_API_KEY="new-admin-api-key"
+export CONFLUENT_CLOUD_API_SECRET="new-admin-api-secret"
+
+# Option 4: Temporarily skip RBAC creation for testing
+# Comment out RBAC module in main.tf to test other components first
+```
+
+**Note**: If you recently updated API key permissions, always clear the provider cache first before troubleshooting further.
+
+**7. State Management and Drift Issues**
+
+These are common issues when your Terraform state doesn't match the actual infrastructure:
+
+**7a. Resource Already Exists Error**
+```bash
+Error: error creating Service Account "my-service": 409 Conflict: 
+Unable to create service account for organization: Service name is already in use.
+```
+- **Cause**: Resource exists in Confluent Cloud but not in Terraform state (state drift)
+- **Solution**: Import existing resources into Terraform state
+```bash
+# Use our automated import script
+export CONFLUENT_CLOUD_API_KEY="your-api-key"
+export CONFLUENT_CLOUD_API_SECRET="your-api-secret"
+./scripts/import-confluent-resources.sh dev
+```
+
+**7b. Empty Destroy Operations**
+```bash
+terraform destroy -var-file="environments/dev.tfvars"
+# No resources to destroy despite having infrastructure
+```
+- **Cause**: Resources exist in cloud but Terraform doesn't know about them
+- **Solution**: Same as above - import resources first, then destroy will work properly
+
+**7c. State Contamination (Wrong Resources in State)**
+```bash
+Error: error reading Kafka Topic: 403 Forbidden: API key is not allowed to access cluster
+```
+- **Cause**: Environment state contains resources from other environments (e.g., DEV resources in UAT state)
+- **Diagnosis**: Check what's in your state
+```bash
+terraform state list
+# Look for resources that don't belong in this environment
+```
+- **Solution**: Remove foreign resources from state
+```bash
+# Example: Remove DEV resources from UAT state
+terraform state rm 'module.topics.confluent_kafka_topic.topics["dev-topic-name"]'
+terraform state rm 'module.service_accounts.confluent_service_account.service_accounts["dev-service"]'
+```
+
+**7d. State File Corruption or Missing**
+```bash
+Error: Failed to load state: state file has no lineage
+```
+- **Cause**: State file is corrupted or missing
+- **Solutions**:
+```bash
+# Option 1: Restore from backup
+cp states/dev/terraform.tfstate.backup states/dev/terraform.tfstate
+
+# Option 2: Reinitialize and import everything
+rm -rf .terraform states/dev/terraform.tfstate*
+./scripts/init-backend.sh local dev
+./scripts/import-confluent-resources.sh dev
+```
+
+**7e. State Lock Issues**
+```bash
+Error: Error acquiring the state lock
+```
+- **Cause**: Another Terraform operation is running or was interrupted
+- **Solutions**:
+```bash
+# Option 1: Wait and retry (if another operation is genuinely running)
+
+# Option 2: Force unlock (only if you're sure no other operation is running)
+terraform force-unlock LOCK_ID
+
+# Option 3: For local backends, remove lock file
+rm .terraform.lock.info
+```
+
+**7f. State Version Mismatch**
+```bash
+Error: state snapshot was created by Terraform v1.x, but this is v1.y
+```
+- **Cause**: State was created with different Terraform version
+- **Solution**: Upgrade state format
+```bash
+terraform init -upgrade
+```
+
+### State Recovery Commands
+
+```bash
+# Backup current state before making changes
+cp states/dev/terraform.tfstate states/dev/terraform.tfstate.manual-backup-$(date +%Y%m%d_%H%M%S)
+
+# List all resources in state
+terraform state list
+
+# Show detailed info about specific resource
+terraform state show 'module.topics.confluent_kafka_topic.topics["topic-name"]'
+
+# Remove specific resource from state (doesn't destroy actual resource)
+terraform state rm 'module.topics.confluent_kafka_topic.topics["topic-name"]'
+
+# Import existing resource into state
+terraform import -var-file="environments/dev.tfvars" \
+  'module.topics.confluent_kafka_topic.topics["topic-name"]' \
+  lkc-cluster-id/topic-name
+
+# Refresh state to match actual infrastructure
+terraform refresh -var-file="environments/dev.tfvars"
+
+# Replace corrupted resource in state (removes and re-imports)
+terraform apply -replace='module.topics.confluent_kafka_topic.topics["topic-name"]' \
+  -var-file="environments/dev.tfvars"
+```
+
+### State Management Best Practices
+
+To avoid state issues in the future:
+
+**✅ Prevention Strategies:**
+```bash
+# 1. Always backup state before major changes
+cp states/dev/terraform.tfstate states/dev/terraform.tfstate.pre-change-backup
+
+# 2. Use import script for existing resources before first deploy
+./scripts/import-confluent-resources.sh dev
+
+# 3. Verify state consistency regularly
+terraform plan -var-file="environments/dev.tfvars"
+# Should show "No changes" if state matches reality
+
+# 4. Don't manually create resources that Terraform should manage
+# Always add them to configuration first, then apply
+
+# 5. Use separate state files per environment (already configured)
+./scripts/init-backend.sh local dev   # dev state: states/dev/
+./scripts/init-backend.sh local uat   # uat state: states/uat/
+./scripts/init-backend.sh local prod  # prod state: states/prod/
+```
+
+**🔧 Recovery Workflow:**
+```bash
+# Step 1: Assess the situation
+terraform state list
+terraform plan -var-file="environments/dev.tfvars"
+
+# Step 2: Backup current state
+cp states/dev/terraform.tfstate states/dev/terraform.tfstate.recovery-backup
+
+# Step 3: Fix the issue (choose appropriate method above)
+# - Import missing resources
+# - Remove foreign resources  
+# - Restore from backup
+# - Re-import everything
+
+# Step 4: Verify fix
+terraform plan -var-file="environments/dev.tfvars"
+# Should show expected changes only
+
+# Step 5: Apply if needed
+terraform apply -var-file="environments/dev.tfvars"
+```
+
 ### Debugging Commands
 
 ```bash
@@ -564,6 +806,55 @@ terraform show -json | jq -r '.terraform_version, .serial'
 - [Confluent Cloud RBAC Documentation](https://docs.confluent.io/cloud/current/access-management/access-control/rbac/overview.html)
 - [Schema Registry Documentation](https://docs.confluent.io/platform/current/schema-registry/index.html)
 - [Kafka Topic Configuration](https://kafka.apache.org/documentation/#topicconfigs)
+
+## 📊 State Management
+
+### Viewing Current Resources
+
+To see what resources are currently managed by Terraform:
+
+```bash
+# List all resources in state
+terraform state list
+
+# Show detailed information about a specific resource
+terraform state show 'module.topics.confluent_kafka_topic.topics["user-events"]'
+```
+
+### State Location
+
+Your Terraform state is stored at: `./states/dev/terraform.tfstate`
+
+For comprehensive state management documentation, see: [docs/TERRAFORM_STATE_MANAGEMENT.md](docs/TERRAFORM_STATE_MANAGEMENT.md)
+
+### Importing Existing Resources
+
+If you have existing Confluent Cloud resources that aren't tracked in Terraform state, use the automated import script:
+
+```bash
+# Set credentials
+export CONFLUENT_CLOUD_API_KEY="your-api-key"
+export CONFLUENT_CLOUD_API_SECRET="your-api-secret"
+
+# Import all existing resources for any environment
+./scripts/import-confluent-resources.sh dev   # Development
+./scripts/import-confluent-resources.sh uat   # UAT  
+./scripts/import-confluent-resources.sh prod  # Production
+```
+
+This script automatically:
+- 🔍 **Discovers existing resources** from your Confluent Cloud account
+- 📋 **Reads expected configuration** from your JSON files  
+- 🔄 **Imports resources** into Terraform state
+- ✅ **Resolves "already exists" errors** during deployments
+
+**Common scenarios:**
+- Getting "409 Conflict: Service name is already in use" errors
+- Running `terraform destroy` shows no resources to destroy
+- Resources exist in Confluent Cloud but not in Terraform state
+- Moving from manual resource creation to Infrastructure as Code
+
+For detailed documentation: [docs/IMPORTING_EXISTING_RESOURCES.md](docs/IMPORTING_EXISTING_RESOURCES.md)
 
 ## 🤝 Contributing
 

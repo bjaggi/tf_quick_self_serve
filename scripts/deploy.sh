@@ -61,7 +61,7 @@ setup_logging() {
     echo "" >> "$FULL_LOG_FILE"
 }
 
-# Execute terraform command with logging
+# Execute terraform command with logging and enhanced error handling
 tf_execute() {
     local cmd="$1"
     local description="$2"
@@ -82,6 +82,90 @@ tf_execute() {
     return $exit_code
 }
 
+# Check if a plan file is stale
+is_plan_stale() {
+    local plan_file="$1"
+    
+    if [ ! -f "$plan_file" ]; then
+        return 1  # Plan file doesn't exist (treat as stale)
+    fi
+    
+    # Try to show the plan file - if this fails, it's definitely stale/corrupted
+    if ! terraform show "$plan_file" >/dev/null 2>&1; then
+        return 1  # Plan file is corrupted or stale
+    fi
+    
+    # The plan file is readable, so it's likely valid
+    # Note: We can't easily detect staleness without trying to apply,
+    # so we'll let terraform apply handle the stale detection
+    return 0  # Plan file appears valid (terraform apply will catch staleness)
+}
+
+# Clean up plan files
+cleanup_plan_files() {
+    print_info "🧹 Cleaning up old plan files..."
+    rm -f *.tfplan
+    print_success "✅ Plan files cleaned up"
+}
+
+# Handle RBAC operations with timeout and retry
+apply_with_rbac_handling() {
+    local tfvars_file="$1"
+    local max_retries=2
+    local timeout_seconds=300  # 5 minutes timeout
+    
+    for attempt in $(seq 1 $max_retries); do
+        print_info "🚀 Starting apply operation (attempt $attempt/$max_retries)..."
+        
+        if [ $attempt -gt 1 ]; then
+            print_warning "⏳ RBAC operations can take 2-3 minutes. Please be patient..."
+            print_info "💡 If this continues to timeout, you may need to:"
+            echo "   1. Check Confluent Cloud status"
+            echo "   2. Retry with: ./scripts/deploy.sh $ENVIRONMENT apply"
+            echo "   3. Run terraform state list to see what was created"
+        fi
+        
+        # Use timeout command if available
+        local timeout_cmd=""
+        if command -v timeout >/dev/null 2>&1; then
+            timeout_cmd="timeout ${timeout_seconds}s"
+            print_info "⏰ Setting ${timeout_seconds}s timeout for terraform apply"
+        fi
+        
+        # Execute terraform apply with timeout
+        if $timeout_cmd terraform apply -var-file="$tfvars_file" -auto-approve 2>&1 | tee -a "$LOG_FILE" "$FULL_LOG_FILE"; then
+            print_success "✅ Apply operation completed successfully!"
+            return 0
+        else
+            local exit_code=$?
+            
+            if [ $exit_code -eq 124 ]; then  # timeout exit code
+                print_warning "⏰ Apply operation timed out after ${timeout_seconds} seconds"
+                print_info "🔍 Checking what resources were created..."
+                terraform state list 2>/dev/null | grep -E "rbac|role_binding" && print_info "Some RBAC bindings may have been created"
+            elif [ $exit_code -eq 130 ]; then  # Ctrl+C interrupt
+                print_warning "⚠️  Apply operation was interrupted"
+                print_info "🔍 Checking current state..."
+                terraform state list 2>/dev/null | grep -E "rbac|role_binding" && print_info "Some RBAC bindings may have been partially created"
+            else
+                print_warning "⚠️  Apply operation failed with exit code: $exit_code"
+            fi
+            
+            if [ $attempt -lt $max_retries ]; then
+                print_info "🔄 Will retry in 10 seconds..."
+                sleep 10
+            else
+                print_error "❌ All apply attempts failed"
+                print_info "💡 To recover:"
+                echo "   1. Check current state: terraform state list"
+                echo "   2. Clean up if needed: terraform state rm <resource>"
+                echo "   3. Retry: ./scripts/deploy.sh $ENVIRONMENT apply"
+                return $exit_code
+            fi
+        fi
+    done
+}
+
 # Get the script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -89,12 +173,24 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Change to project root directory for all operations
 cd "$PROJECT_ROOT"
 
+# Signal trap for cleanup on interrupt
+cleanup_on_interrupt() {
+    print_warning "⚠️  Operation interrupted! Cleaning up..."
+    cleanup_plan_files
+    print_info "💡 You may need to check terraform state and retry the operation"
+    exit 130
+}
+trap cleanup_on_interrupt INT TERM
+
 # Check if environment is provided
 if [ $# -eq 0 ]; then
     print_error "Environment is required!"
     echo "Usage: $0 <environment> [action]"
     echo "Environments: dev, uat, prod"
-    echo "Actions: plan, apply, destroy (default: plan)"
+    echo "Actions: plan, apply, destroy, show, state, cleanup (default: plan)"
+    echo ""
+    echo "Special actions:"
+    echo "  cleanup    Remove stale plan files and reset state"
     exit 1
 fi
 
@@ -207,16 +303,40 @@ case $ACTION in
         print_info "To apply these changes, run: ./scripts/deploy.sh $ENVIRONMENT apply"
         ;;
     apply)
-        # Check if plan file exists
+        # Check if plan file exists and if it's stale
         if [ -f "${ENVIRONMENT}.tfplan" ]; then
-            print_info "Applying from existing plan file..."
-            tf_execute "terraform apply \"${ENVIRONMENT}.tfplan\"" "Terraform Apply (from plan)"
-            rm "${ENVIRONMENT}.tfplan"
+            print_info "Found existing plan file: ${ENVIRONMENT}.tfplan"
+            
+            # Try to apply from plan file, with fallback to fresh apply if stale
+            print_info "📋 Attempting to apply from plan file..."
+            
+            # Capture the apply output to detect staleness
+            apply_output=""
+            if apply_output=$(terraform apply "${ENVIRONMENT}.tfplan" 2>&1); then
+                rm "${ENVIRONMENT}.tfplan"
+                print_success "✅ Applied successfully from plan file!"
+                echo "$apply_output"
+            else
+                # Check if the error is due to stale plan
+                if echo "$apply_output" | grep -q "Saved plan is stale"; then
+                    print_warning "⚠️  Plan file is stale, removing and running fresh apply..."
+                    rm "${ENVIRONMENT}.tfplan"
+                    apply_with_rbac_handling "$TFVARS_FILE"
+                else
+                    # Other error, show it and exit
+                    print_error "❌ Apply from plan file failed:"
+                    echo "$apply_output"
+                    cleanup_plan_files
+                    exit 1
+                fi
+            fi
         else
-            print_warning "No plan file found. Running plan and apply..."
-            tf_execute "terraform apply -var-file=\"$TFVARS_FILE\"" "Terraform Apply (direct)"
+            print_info "No plan file found. Running direct apply with RBAC handling..."
+            apply_with_rbac_handling "$TFVARS_FILE"
         fi
-        print_success "Deployment to $ENVIRONMENT completed successfully!"
+        
+        # Final success message (only if we get here)
+        print_success "🎉 Deployment to $ENVIRONMENT completed successfully!"
         ;;
     destroy)
         print_warning "This will DESTROY all resources in $ENVIRONMENT environment!"
@@ -235,6 +355,34 @@ case $ACTION in
     state)
         print_info "Listing current state resources..."
         tf_execute "terraform state list" "Terraform State List"
+        ;;
+    cleanup)
+        print_info "🧹 Cleaning up stale plan files and resetting state..."
+        cleanup_plan_files
+        
+        # Also clear any .terraform lock files that might be causing issues
+        if [ -f ".terraform.lock.hcl" ]; then
+            print_info "🔓 Clearing terraform lock file..."
+            rm -f ".terraform.lock.hcl"
+        fi
+        
+        # Clear provider cache if it exists
+        if [ -d ".terraform/providers" ]; then
+            print_info "🗑️  Clearing provider cache..."
+            rm -rf .terraform/providers
+            print_info "🔄 Reinitializing terraform..."
+            terraform init -input=false > /dev/null 2>&1 || true
+        fi
+        
+        print_success "✅ Cleanup completed!"
+        print_info "💡 Next steps:"
+        echo "   1. Run: ./scripts/deploy.sh $ENVIRONMENT plan"
+        echo "   2. Review changes and apply: ./scripts/deploy.sh $ENVIRONMENT apply"
+        ;;
+    *)
+        print_error "Unknown action: $ACTION"
+        echo "Valid actions: plan, apply, destroy, show, state, cleanup"
+        exit 1
         ;;
 esac
 

@@ -5,12 +5,19 @@ environment        = "uat"
 organization_id   = "fff39d13-91b7-444b-baa6-c0007e80e4d5"  # SERVICES - AMER NE
 cluster_id        = "lkc-63gpw8"  # Replace with your dev cluster ID
 environment_id    = "env-7qv2p"  # Replace with your dev environment ID
-#schema_registry_id = "lsrc-xxxxxx" # Replace with your schema registry ID (optional)
+schema_registry_id = "lsrc-j55zm" # Replace with your schema registry ID (optional)
+schema_registry_rest_endpoint = "https://psrc-j55zm.us-central1.gcp.confluent.cloud" # Replace with your Schema Registry REST endpoint
 kafka_rest_endpoint = "https://pkc-n00kk.us-east-1.aws.confluent.cloud:443" # UAT cluster REST endpoint
 
-# Kafka Cluster API Credentials (for topic and schema operations)
-kafka_api_key    = "HXYI4MBGIMJUX74T"    # UAT cluster API key (from sa-57mq3x8)
-kafka_api_secret = "cfltiJqEOSlOc8e8tldDzIJmuqPrc2vWCi+w2P5ONOI2CZLbT8rxmfkMACbBt5ZA" # UAT Kafka cluster API secret
+# Kafka Cluster API Credentials (for topic operations)
+kafka_api_key    = "VAPSC3X75RJSN5ZM"    # UAT cluster API key (from sa-57mq3x8)
+kafka_api_secret = "cfltvs7YMWwx4ZW+vfrM9AriAikZ1foVHbRrpWpMfUmxAaHYPtSK16HUMkJQVXqA" # UAT Kafka cluster API secret
+
+
+# Schema Registry API Credentials (for schema operations) 
+schema_registry_api_key    = "QCAVF7NOELXVNA2J"    # Replace with your Schema Registry API key
+schema_registry_api_secret = "cfltUd+pADZqeV+b30o5TVNpyHXW8YptVCw0Gxdo0H/Z2JVQr2gQ7NBfqbw3eb2g" # Replace with your Schema Registry API secret
+
 
 # Secret Management Configuration
 # Choose your secret backend: environment_variables, aws_secrets_manager, azure_keyvault, hashicorp_vault, terraform_cloud

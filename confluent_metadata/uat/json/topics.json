@@ -2,7 +2,16 @@
   "topics": [
     {
       "name": "uat-user-events",
-      "partitions": 3,
+      "partitions": 14,
+      "replication_factor": 3,
+      "configurations": {
+        "cleanup.policy": "delete",
+        "retention.ms": "604800000",
+        "min.insync.replicas": "1"
+      }
+    },{
+      "name": "uat-user-events2",
+      "partitions": 30,
       "replication_factor": 3,
       "configurations": {
         "cleanup.policy": "delete",

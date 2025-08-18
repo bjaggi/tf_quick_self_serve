@@ -6,7 +6,7 @@ terraform {
   backend "local" {
     # Path will be set dynamically by init-backend.sh script
     # Default fallback path for dev environment
-    path = "./states/dev/terraform.tfstate"
+    path = "./states/prod/terraform.tfstate"
   }
 }
 

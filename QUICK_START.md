@@ -19,21 +19,31 @@ environment_id    = "env-your-environment-id"  # ← Change this
 schema_registry_id = "lsrc-your-sr-id"         # ← Change this (optional)
 ```
 
-### 3. Initialize Backend and Deploy to Development
+### 3. Initialize Backend
 ```bash
 # Initialize backend (local is good for development)
 # This creates the organized states/dev/ directory structure
 ./scripts/init-backend.sh local dev
+```
 
+### 4A. Fresh Deployment (No Existing Resources)
+```bash
 # Deploy using the convenient deployment script
 # State files will be stored in states/dev/terraform.tfstate
 ./scripts/deploy.sh dev plan
 ./scripts/deploy.sh dev apply
-
-# Or using terraform directly (after backend initialization)
-terraform plan -var-file="environments/dev.tfvars"
-terraform apply -var-file="environments/dev.tfvars"
 ```
+
+### 4B. Import Existing Resources (If You Have Them)
+```bash
+# If you get "already exists" errors or have existing Confluent Cloud resources:
+./scripts/import-confluent-resources.sh dev
+
+# Then deploy normally (will only create missing resources)
+./scripts/deploy.sh dev apply
+```
+
+**💡 Pro Tip**: Always run the import script first if you're unsure whether resources exist. It's safe to run and will only import what's needed!
 
 ## 🎯 What Gets Created
 
